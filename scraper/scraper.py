@@ -28,12 +28,34 @@ def setup_driver():
     }
     options.add_experimental_option("prefs", prefs)
     
-    driver_path = ChromeDriverManager().install()
-    if driver_path and ("THIRD_PARTY_NOTICES" in driver_path or "LICENSE" in driver_path):
-        parent_dir = os.path.dirname(driver_path)
-        actual_path = os.path.join(parent_dir, "chromedriver")
-        if os.path.exists(actual_path):
-            driver_path = actual_path
+    # Try finding locally cached ChromeDriver first to bypass network and geographic restrictions
+    wdm_dir = os.path.expanduser("~/.wdm")
+    chromedriver_path = None
+    if os.path.exists(wdm_dir):
+        for root, dirs, files in os.walk(wdm_dir):
+            if "chromedriver" in files:
+                full_path = os.path.join(root, "chromedriver")
+                if os.access(full_path, os.X_OK):
+                    # Check if the found path is actually the chromedriver binary and not a directory with metadata
+                    if not ("THIRD_PARTY_NOTICES" in full_path or "LICENSE" in full_path):
+                        chromedriver_path = full_path
+                        break
+
+    if chromedriver_path:
+        driver_path = chromedriver_path
+        print(f"[*] Using cached ChromeDriver: {driver_path}")
+    else:
+        print("[*] Cached ChromeDriver not found. Downloading via ChromeDriverManager...")
+        try:
+            driver_path = ChromeDriverManager().install()
+            if driver_path and ("THIRD_PARTY_NOTICES" in driver_path or "LICENSE" in driver_path):
+                parent_dir = os.path.dirname(driver_path)
+                actual_path = os.path.join(parent_dir, "chromedriver")
+                if os.path.exists(actual_path):
+                    driver_path = actual_path
+        except Exception as e:
+            print(f"\n[!] Failed to download/update ChromeDriver via webdriver-manager: {e}")
+            raise e
             
     service = Service(driver_path)
     driver = webdriver.Chrome(service=service, options=options)

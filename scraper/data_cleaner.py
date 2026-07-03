@@ -335,6 +335,43 @@ def clean_csv(input_path: str, output_path: str) -> None:
         logger.error(f"Failed to clean CSV: {e}")
         raise
 
+def merge_csv_files(input_dir: str, output_path: str) -> None:
+    """
+    Reads all CSV files in input_dir, merges them, and writes to output_path.
+    """
+    import os
+    import csv
+    import glob
+    
+    logger.info(f"Merging CSV files from {input_dir} into {output_path}...")
+    
+    csv_files = glob.glob(os.path.join(input_dir, "*.csv"))
+    if not csv_files:
+        logger.warning(f"No CSV files found in {input_dir}")
+        return
+        
+    all_rows = []
+    fieldnames = None
+    
+    for file_path in csv_files:
+        with open(file_path, mode="r", encoding="utf-8-sig") as infile:
+            reader = csv.DictReader(infile)
+            if fieldnames is None:
+                fieldnames = reader.fieldnames
+            for row in reader:
+                all_rows.append(row)
+                
+    if not fieldnames:
+        logger.warning("Could not determine headers for merged CSV.")
+        return
+        
+    with open(output_path, mode="w", newline="", encoding="utf-8-sig") as outfile:
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(all_rows)
+        
+    logger.info(f"Successfully merged {len(csv_files)} files into {output_path} with {len(all_rows)} rows.")
+
 if __name__ == "__main__":
     import os
     # Setup simple logging for CLI
@@ -342,11 +379,14 @@ if __name__ == "__main__":
     
     # We resolve paths relative to project root
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    input_file = os.path.join(project_root, "data", "test_scraper_data.csv")
-    output_file = os.path.join(project_root, "data", "cleaned_scraper_data.csv")
+    cars_dir = os.path.join(project_root, "data", "cars")
+    raw_data_file = os.path.join(project_root, "data", "raw_data.csv")
+    cleaned_data_file = os.path.join(project_root, "data", "cleaned_data.csv")
     
-    if os.path.exists(input_file):
-        clean_csv(input_file, output_file)
+    if os.path.exists(cars_dir):
+        merge_csv_files(cars_dir, raw_data_file)
+        if os.path.exists(raw_data_file):
+            clean_csv(raw_data_file, cleaned_data_file)
     else:
-        logger.error(f"Input file not found at: {input_file}")
+        logger.error(f"Input directory not found at: {cars_dir}")
 
